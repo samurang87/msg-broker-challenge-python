@@ -2,12 +2,22 @@ from fastapi import FastAPI
 
 from broker.config import Settings, get_settings
 from broker.models import PublishedMessage
+from broker.storage import InMemoryMessageStorage, MessageStorage, StorageClient
 
 
-def create_app(settings: Settings) -> FastAPI:
+def get_storage(settings: Settings) -> StorageClient:
+    if settings.ENVIRONMENT == "development":
+        return InMemoryMessageStorage()
+    else:
+        raise NotImplementedError("Only 'development' environment is supported")
+
+
+def create_app(settings: Settings, storage_client: StorageClient) -> FastAPI:
     broker_app = FastAPI(
         title=settings.APP_NAME,
     )
+
+    message_storage = MessageStorage(storage_client)
 
     @broker_app.get("/status")
     async def status():
@@ -15,10 +25,15 @@ def create_app(settings: Settings) -> FastAPI:
 
     @broker_app.post("/publish")
     async def publish(message: PublishedMessage):
-        print(f"Publishing message to topic {message.topic}: {message.message}")
-        return {"status": "ok"}
+        if message.topic in message_storage.get_topics():
+            message_storage.publish(message.topic, message.message)
+            return {"status": "published"}
+        else:
+            return {"status": "topic_not_found"}
 
     return broker_app
 
 
-app = create_app(get_settings())
+settings = get_settings()
+storage_client = get_storage(settings)
+app = create_app(settings, storage_client)

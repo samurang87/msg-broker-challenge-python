@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # Application specific settings
     STORAGE_PATH: str | None = None
     MAX_MESSAGE_SIZE: int = 1024 * 1024  # 1MB
+    ENVIRONMENT: str = "development"
 
     class Config:
         env_file = ".env"

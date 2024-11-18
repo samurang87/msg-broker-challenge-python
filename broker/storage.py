@@ -23,8 +23,8 @@ class MessageStorage:
     def publish(self, topic: str, message: str):
         self.storage.publish(topic, message)
 
-    def get_messages(self, topic: str) -> list[str]:
-        return self.storage.get_messages(topic)
+    def get_matching_topics(self, topic: str) -> list[str]:
+        return self.storage.get_matching_topics(topic)
 
     def get_topics(self) -> list[str]:
         return self.storage.get_topics()
@@ -39,11 +39,11 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def publish(self, topic: str, message: str):
+    def get_matching_topics(self, topic: str) -> list[str]:
         pass
 
     @abstractmethod
-    def get_messages(self, topic: str) -> list[str]:
+    def publish(self, topic: str, message: str):
         pass
 
     @abstractmethod
@@ -73,6 +73,15 @@ class InMemoryMessageStorage(StorageClient):
             message = self.topics[topic].popleft()
             for callback_url in self.subscriptions[topic]:
                 yield message, callback_url
+
+    def get_matching_topics(self, topic: str) -> list[str]:
+        matching_topics = []
+        for available_topic in self.get_topics():
+            if available_topic == topic:
+                matching_topics.append(available_topic)
+            if "~" in available_topic and topic.startswith(available_topic[:-1]):
+                matching_topics.append(available_topic)
+        return matching_topics
 
     def publish(self, topic: str, message: str):
         timestamped_message = TimestampedMessage(

@@ -32,13 +32,15 @@ def create_app(
 
     @broker_app.post("/publish")
     async def publish(message: PublishedMessage):
-        if message.topic in message_storage.get_topics():
-            message_storage.publish(message.topic, message.message)
-            for msg, callback_url in message_storage.consume(message.topic):
-                sender_client.send(msg.message, callback_url)
-            return {"status": "published"}
+        if matching_topics := message_storage.get_matching_topics(message.topic):
+            for matching_topic in matching_topics:
+                message_storage.publish(matching_topic, message.message)
+                for msg, callback_url in message_storage.consume(matching_topic):
+                    sender_client.send(msg.message, callback_url)
         else:
             return {"status": "topic_not_found"}
+
+        return {"status": "published"}
 
     @broker_app.post("/subscribe")
     async def subscribe(subscription: TopicSubscription):

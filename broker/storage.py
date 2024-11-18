@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -16,6 +17,9 @@ class MessageStorage:
     def __init__(self, storage: "StorageClient"):
         self.storage = storage
 
+    def consume(self, topic: str) -> Iterator[tuple[TimestampedMessage, str]]:
+        return self.storage.consume(topic)
+
     def publish(self, topic: str, message: str):
         self.storage.publish(topic, message)
 
@@ -30,6 +34,10 @@ class MessageStorage:
 
 
 class StorageClient(ABC):
+    @abstractmethod
+    def consume(self, topic: str):
+        pass
+
     @abstractmethod
     def publish(self, topic: str, message: str):
         pass
@@ -59,6 +67,12 @@ class InMemoryMessageStorage(StorageClient):
     def __init__(self):
         self.topics = dict[str, deque[TimestampedMessage]]()
         self.subscriptions = defaultdict(list[str])
+
+    def consume(self, topic: str) -> Iterator[tuple[TimestampedMessage, str]]:
+        while self.topics[topic]:
+            message = self.topics[topic].popleft()
+            for callback_url in self.subscriptions[topic]:
+                yield message, callback_url
 
     def publish(self, topic: str, message: str):
         timestamped_message = TimestampedMessage(

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from broker.config import Settings, get_settings
-from broker.models import PublishedMessage
+from broker.models import PublishedMessage, TopicSubscription
 from broker.storage import InMemoryMessageStorage, MessageStorage, StorageClient
 
 
@@ -30,6 +30,11 @@ def create_app(settings: Settings, storage_client: StorageClient) -> FastAPI:
             return {"status": "published"}
         else:
             return {"status": "topic_not_found"}
+
+    @broker_app.post("/subscribe")
+    async def subscribe(subscription: TopicSubscription):
+        message_storage.subscribe(subscription)
+        return {"status": "subscribed"}
 
     return broker_app
 

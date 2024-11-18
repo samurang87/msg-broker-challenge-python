@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
-from collections import deque
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import UTC, datetime
+
+from broker.models import TopicSubscription
 
 
 @dataclass
@@ -23,6 +25,9 @@ class MessageStorage:
     def get_topics(self) -> list[str]:
         return self.storage.get_topics()
 
+    def subscribe(self, subscription: TopicSubscription):
+        return self.storage.subscribe(subscription)
+
 
 class StorageClient(ABC):
     @abstractmethod
@@ -37,6 +42,10 @@ class StorageClient(ABC):
     def get_topics(self) -> list[str]:
         pass
 
+    @abstractmethod
+    def subscribe(self, subscription: TopicSubscription):
+        pass
+
 
 class InMemoryMessageStorage(StorageClient):
     _instance = None
@@ -49,6 +58,7 @@ class InMemoryMessageStorage(StorageClient):
 
     def __init__(self):
         self.topics = dict[str, deque[TimestampedMessage]]()
+        self.subscriptions = defaultdict(list[str])
 
     def publish(self, topic: str, message: str):
         timestamped_message = TimestampedMessage(
@@ -63,3 +73,7 @@ class InMemoryMessageStorage(StorageClient):
 
     def get_topics(self) -> list[str]:
         return list(self.topics.keys())
+
+    def subscribe(self, subscription: TopicSubscription):
+        self.subscriptions[subscription.topic].append(subscription.callback_url)
+        self.topics[subscription.topic] = deque()

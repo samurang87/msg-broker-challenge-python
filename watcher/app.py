@@ -2,18 +2,23 @@ import difflib
 from pathlib import Path
 
 import requests
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+
+from watcher.models import OutgoingMessage
+from watcher.publisher_clients import PublisherClient
 
 
 class FileChangeHandler(FileSystemEventHandler):
-    def __init__(self, pubsub_endpoint: str, watch_dir: str):
+    def __init__(
+        self, pubsub_endpoint: str, watch_dir: str, publisher_client: PublisherClient
+    ):
         self.pubsub_endpoint = pubsub_endpoint
         self.watch_dir = Path(watch_dir)
         self.cached_content: dict[str, str] = {}
         self._initialize_cache()
+        self.publisher_client = publisher_client
 
     def _initialize_cache(self):
-        """Initialize cache with all existing files content"""
         print("Initializing cache...")
         for filepath in self.watch_dir.rglob("*"):
             if filepath.is_file():
@@ -22,7 +27,8 @@ class FileChangeHandler(FileSystemEventHandler):
                     self.cached_content[str(filepath)] = content
         print(f"Cache initialized with {len(self.cached_content)} files")
 
-    def _get_file_content(self, filepath: str) -> str | None:
+    @staticmethod
+    def _get_file_content(filepath: str) -> str | None:
         try:
             with open(filepath) as f:
                 return f.read()
@@ -30,7 +36,8 @@ class FileChangeHandler(FileSystemEventHandler):
             print(f"Error reading file {filepath}: {e}")
             return None
 
-    def _calculate_diff(self, old_content: str, new_content: str) -> str:
+    @staticmethod
+    def _calculate_diff(old_content: str, new_content: str) -> str:
         diff = difflib.unified_diff(
             old_content.splitlines(keepends=True), new_content.splitlines(keepends=True)
         )
@@ -38,21 +45,20 @@ class FileChangeHandler(FileSystemEventHandler):
 
     def _publish_message(self, topic: str, message: str):
         try:
-            payload = {"messages": [{"data": message.encode("utf-8").hex()}]}
-            response = requests.post(
-                f"{self.pubsub_endpoint}/topics/{topic}:publish", json=payload
-            )
-            response.raise_for_status()
-        except Exception as e:
+            payload = OutgoingMessage(topic=topic, message=message)
+            self.publisher_client.publish(payload, self.pubsub_endpoint)
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP error occurred: {e}")
+        except requests.exceptions.RequestException as e:
             print(f"Error publishing message: {e}")
 
-    def on_modified(self, event):
+    def on_modified(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
 
         filepath = str(event.src_path)
         if filepath not in self.cached_content:
-            print(f"Ignoring modification of uncached file: {filepath}")
+            print(f"Ignoring modification of not cached file: {filepath}")
             return
 
         new_content = self._get_file_content(filepath)
@@ -62,6 +68,5 @@ class FileChangeHandler(FileSystemEventHandler):
         old_content = self.cached_content[filepath]
         if new_content != old_content:
             diff = self._calculate_diff(old_content, new_content)
-            topic = filepath.replace("/", "_").lstrip("_")
-            self._publish_message(topic, diff)
+            self._publish_message(filepath, diff)
             self.cached_content[filepath] = new_content

@@ -1,0 +1,11 @@
+# .dockerignore
+test/
+.git/
+.gitignore
+.pre-commit-config.yaml
+.python-version
+assignment.md
+LICENSE
+README.md
+__pycache__/
+*.pyc

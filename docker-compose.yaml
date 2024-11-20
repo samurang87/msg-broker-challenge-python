@@ -1,0 +1,47 @@
+services:
+  broker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m uvicorn broker.app:app --host 0.0.0.0 --port 8000 --workers 1
+    environment:
+      - APP_NAME=broker
+      - LOG_LEVEL=info
+      - MAX_MESSAGE_SIZE=1048576
+      - ENVIRONMENT=production
+    ports:
+      - "8000:8000"
+
+  watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "
+      mkdir -p /tmp/to-do /tmp/important-docs &&
+      echo 'To be, or not to be, that is the question' > /tmp/shakespeare.txt &&
+      echo '1. Buy milk\n2. Write code\n3. Sleep' > /tmp/to-do/important-do-tomorrow.txt &&
+      echo 'Super secret content' > /tmp/important-docs/secret.txt &&
+      python -m watcher.cli /tmp --pubsub-endpoint http://broker:8000/publish --env production
+      "
+    depends_on:
+      - broker
+
+  reviewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python -m reviewer.cli /tmp/~"
+    environment:
+      - BROKER_URL=http://broker:8000
+      - CALLBACK_URL=http://reviewer:8001/callback
+    ports:
+      - "8001:8001"
+    depends_on:
+      - broker
+      - watcher
+
+networks:
+  default:
+    driver: bridge

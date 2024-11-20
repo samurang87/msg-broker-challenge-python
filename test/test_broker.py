@@ -2,6 +2,8 @@ from collections import deque
 
 from fastapi import status
 
+from common.models import TimestampedMessage
+
 
 def test_status_endpoint(broker_client):
     response = broker_client.get("/status")
@@ -14,18 +16,22 @@ def test_publish_endpoint(broker_client, storage_client, sender_client):
     callback_url = "http://localhost:8000/notifications"
     storage_client.subscriptions["test-topic"] = [callback_url]
 
-    message = "This is a test message"
+    message = TimestampedMessage(
+        filepath="test-topic",
+        message="This is a test message",
+        timestamp="2021-01-01T00:00:00",
+    )
     response = broker_client.post(
-        "/publish", json={"topic": "test-topic", "message": message}
+        "/publish",
+        json=message.model_dump(),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"status": "published"}
     assert sender_client.check_message_sent(message, callback_url)
     assert not storage_client.get_messages("test-topic")
 
-    response = broker_client.post(
-        "/publish", json={"topic": "test-topic-2", "message": "This is a test message"}
-    )
+    message.filepath = "test-topic-2"
+    response = broker_client.post("/publish", json=message.model_dump())
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"status": "topic_not_found"}
     assert not storage_client.get_messages("test-topic")
@@ -41,10 +47,12 @@ def test_publish_endpoint__matches_wildcard_subscriptions(
     storage_client.subscriptions["test-to~"] = [callback_url]
     storage_client.subscriptions["test-topic"] = [callback_url2]
 
-    message = "This is a test message"
-    response = broker_client.post(
-        "/publish", json={"topic": "test-topic", "message": message}
+    message = TimestampedMessage(
+        filepath="test-topic",
+        message="This is a test message",
+        timestamp="2021-01-01T00:00:00",
     )
+    response = broker_client.post("/publish", json=message.model_dump())
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"status": "published"}
     assert sender_client.check_message_sent(message, callback_url)

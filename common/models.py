@@ -3,15 +3,15 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 
-class PublishedMessage(BaseModel):
-    topic: Annotated[
+class TimestampedMessage(BaseModel):
+    filepath: Annotated[
         str,
         Field(
             ...,
             min_length=1,
             max_length=1024,
             pattern=r"^[a-zA-Z0-9_.\-/]+$",
-            examples=["my-topic", "user.notifications"],
+            examples=["/some/path.file.txt", "user/name.md"],
         ),
     ]
     message: Annotated[
@@ -20,6 +20,14 @@ class PublishedMessage(BaseModel):
             ...,
             max_length=1024 * 1024,  # 1MB limit
             examples=["This is a test message"],
+        ),
+    ]
+    timestamp: Annotated[
+        str,
+        Field(
+            ...,
+            max_length=64,
+            examples=["2021-01-01T12:00:00Z"],
         ),
     ]
 

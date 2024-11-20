@@ -1,16 +1,9 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from collections.abc import Iterator
-from dataclasses import dataclass
-from datetime import UTC, datetime
 
 from broker.models import TopicSubscription
-
-
-@dataclass
-class TimestampedMessage:
-    message: str
-    timestamp: str
+from common.models import TimestampedMessage
 
 
 class MessageStorage:
@@ -20,8 +13,8 @@ class MessageStorage:
     def consume(self, topic: str) -> Iterator[tuple[TimestampedMessage, str]]:
         return self.storage.consume(topic)
 
-    def publish(self, topic: str, message: str):
-        self.storage.publish(topic, message)
+    def publish(self, topic: str, message: TimestampedMessage):
+        self.storage.publish(topic=topic, message=message)
 
     def get_matching_topics(self, topic: str) -> list[str]:
         return self.storage.get_matching_topics(topic)
@@ -43,7 +36,7 @@ class StorageClient(ABC):
         pass
 
     @abstractmethod
-    def publish(self, topic: str, message: str):
+    def publish(self, topic: str, message: TimestampedMessage):
         pass
 
     @abstractmethod
@@ -83,12 +76,8 @@ class InMemoryMessageStorage(StorageClient):
                 matching_topics.append(available_topic)
         return matching_topics
 
-    def publish(self, topic: str, message: str):
-        timestamped_message = TimestampedMessage(
-            message=message,
-            timestamp=datetime.now(UTC).isoformat(),
-        )
-        self.topics[topic].append(timestamped_message)
+    def publish(self, topic: str, message: TimestampedMessage):
+        self.topics[topic].append(message)
 
     def get_messages(self, topic: str) -> list[TimestampedMessage]:
         # This is only used for testing, at this point

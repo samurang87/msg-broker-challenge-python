@@ -1,10 +1,11 @@
 import difflib
+from datetime import datetime
 from pathlib import Path
 
 import requests
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
-from common.models import PublishedMessage
+from common.models import TimestampedMessage
 from watcher.publisher_clients import PublisherClient
 
 
@@ -43,9 +44,11 @@ class FileChangeHandler(FileSystemEventHandler):
         )
         return "".join(diff)
 
-    def _publish_message(self, topic: str, message: str):
+    def _publish_message(self, filepath: str, message: str, timestamp: str):
         try:
-            payload = PublishedMessage(topic=topic, message=message)
+            payload = TimestampedMessage(
+                filepath=filepath, message=message, timestamp=timestamp
+            )
             self.publisher_client.publish(payload, self.pubsub_endpoint)
         except requests.exceptions.HTTPError as e:
             print(f"HTTP error occurred: {e}")
@@ -53,6 +56,8 @@ class FileChangeHandler(FileSystemEventHandler):
             print(f"Error publishing message: {e}")
 
     def on_modified(self, event: FileSystemEvent) -> None:
+        timestamp = datetime.now().isoformat()
+
         if event.is_directory:
             return
 
@@ -66,7 +71,8 @@ class FileChangeHandler(FileSystemEventHandler):
             return
 
         old_content = self.cached_content[filepath]
+
         if new_content != old_content:
             diff = self._calculate_diff(old_content, new_content)
-            self._publish_message(filepath, diff)
+            self._publish_message(filepath, diff, timestamp)
             self.cached_content[filepath] = new_content

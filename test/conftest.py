@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -5,6 +7,7 @@ from broker.app import create_app as create_broker_app
 from broker.config import get_settings
 from broker.sender_clients import TestSenderClient
 from broker.storage import InMemoryMessageStorage
+from reviewer.app import create_app as create_reviewer_app
 from watcher.app import FileChangeHandler
 from watcher.publisher_clients import FakePublisherClient
 
@@ -57,8 +60,15 @@ def cached_content(temp_file):
 @pytest.fixture
 def file_change_handler(publisher_client, cached_content):
     handler = FileChangeHandler("localhost:8000", ".", publisher_client)
-
-    # Populate the cache with some plausible content
     handler.cached_content = cached_content
 
     yield handler
+
+
+@pytest.fixture
+def reviewer_client(caplog):
+    caplog.set_level(logging.INFO)
+    logger = logging.getLogger("test_reviewer")
+    logger.handlers = []
+    app = create_reviewer_app(logger, logger)
+    return TestClient(app)

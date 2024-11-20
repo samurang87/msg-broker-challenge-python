@@ -4,7 +4,7 @@ from pathlib import Path
 import requests
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
-from watcher.models import OutgoingMessage
+from common.models import PublishedMessage
 from watcher.publisher_clients import PublisherClient
 
 
@@ -45,7 +45,7 @@ class FileChangeHandler(FileSystemEventHandler):
 
     def _publish_message(self, topic: str, message: str):
         try:
-            payload = OutgoingMessage(topic=topic, message=message)
+            payload = PublishedMessage(topic=topic, message=message)
             self.publisher_client.publish(payload, self.pubsub_endpoint)
         except requests.exceptions.HTTPError as e:
             print(f"HTTP error occurred: {e}")

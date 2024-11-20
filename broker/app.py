@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 
 from broker.config import Settings, get_settings
-from broker.models import PublishedMessage, TopicSubscription
+from broker.models import TopicSubscription
 from broker.sender_clients import SenderClient, TestSenderClient
 from broker.storage import InMemoryMessageStorage, MessageStorage, StorageClient
+from common.models import PublishedMessage
 
 
 def get_sender(settings: Settings) -> SenderClient:

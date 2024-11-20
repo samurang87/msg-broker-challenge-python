@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 
-class OutgoingMessage(BaseModel):
+class PublishedMessage(BaseModel):
     topic: Annotated[
         str,
         Field(

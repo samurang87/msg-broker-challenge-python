@@ -1,8 +1,15 @@
+import logging
 from collections import deque
 
+import pytest
 from fastapi import status
 
 from common.models import TimestampedMessage
+
+
+@pytest.fixture(autouse=True)
+def suppress_logs(caplog):
+    caplog.set_level(logging.CRITICAL)
 
 
 def test_status_endpoint(broker_client):

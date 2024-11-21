@@ -32,3 +32,24 @@ class TimestampedMessage(BaseModel):
     ]
 
     model_config = {"str_strip_whitespace": True}
+
+
+class TopicSubscription(BaseModel):
+    topic: Annotated[
+        str,
+        Field(
+            ...,
+            min_length=1,
+            max_length=1024,
+            pattern=r"^[a-zA-Z0-9_.\-/~]+$",
+            examples=["/tmp/", "some/file.txt"],
+        ),
+    ]
+    callback_url: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        examples=["http://localhost:8000/notifications"],
+    )
+
+    model_config = {"str_strip_whitespace": True}

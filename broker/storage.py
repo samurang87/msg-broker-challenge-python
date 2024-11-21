@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from collections.abc import Iterator
 
-from broker.models import TopicSubscription
-from common.models import TimestampedMessage
+from common.models import TimestampedMessage, TopicSubscription
 
 
 class MessageStorage:

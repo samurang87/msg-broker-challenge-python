@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from broker.config import Settings, get_settings
-from broker.sender_clients import SenderClient, TestSenderClient
+from broker.sender_clients import HTTPSenderClient, SenderClient, TestSenderClient
 from broker.storage import InMemoryMessageStorage, MessageStorage, StorageClient
 from common.models import TimestampedMessage, TopicSubscription
 
@@ -10,7 +10,7 @@ def get_sender(settings: Settings) -> SenderClient:
     if settings.ENVIRONMENT == "development":
         return TestSenderClient()
     else:
-        raise NotImplementedError("Only 'development' environment is supported")
+        return HTTPSenderClient()
 
 
 def get_storage() -> StorageClient:

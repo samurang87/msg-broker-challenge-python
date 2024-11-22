@@ -28,8 +28,7 @@ class FileChangeHandler(FileSystemEventHandler):
             logger.info(f"Caching file {filepath}")
             if filepath.is_file():
                 content = self._get_file_content(str(filepath))
-                if content is not None:
-                    self.cached_content[str(filepath)] = content
+                self.cached_content[str(filepath)] = content
         logger.info(f"Cache initialized with {len(self.cached_content)} files")
 
     @staticmethod

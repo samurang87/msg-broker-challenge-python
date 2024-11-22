@@ -1,8 +1,11 @@
+import logging
 from abc import ABC, abstractmethod
 
 import requests
 
 from common.models import TimestampedMessage
+
+logger = logging.getLogger("broker_app_logger")
 
 
 class SenderClient(ABC):
@@ -28,7 +31,9 @@ class TestSenderClient(SenderClient):
 class HTTPSenderClient(SenderClient):
     def send(self, message: TimestampedMessage, callback_url: str) -> str:
         response = requests.post(callback_url, json=message.model_dump())
-        if response.ok:
+        try:
+            response.raise_for_status()
             return "ack"
-        else:
-            print(f"Error sending message: {response.text}")
+        except requests.exceptions.HTTPError:
+            logger.exception("HTTP error occurred")
+            return "nack"

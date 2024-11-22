@@ -1,4 +1,5 @@
 import difflib
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -7,6 +8,8 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 from common.models import TimestampedMessage
 from watcher.publisher_clients import PublisherClient
+
+logger = logging.getLogger("watcher_app_logger")
 
 
 class FileChangeHandler(FileSystemEventHandler):
@@ -19,22 +22,23 @@ class FileChangeHandler(FileSystemEventHandler):
         self._initialize_cache()
         self.publisher_client = publisher_client
 
-    def _initialize_cache(self):
-        print("Initializing cache...")
+    def _initialize_cache(self) -> None:
+        logger.info(f"Initializing cache for {self.watch_dir}")
         for filepath in self.watch_dir.rglob("*"):
+            logger.info(f"Caching file {filepath}")
             if filepath.is_file():
                 content = self._get_file_content(str(filepath))
                 if content is not None:
                     self.cached_content[str(filepath)] = content
-        print(f"Cache initialized with {len(self.cached_content)} files")
+        logger.info(f"Cache initialized with {len(self.cached_content)} files")
 
     @staticmethod
     def _get_file_content(filepath: str) -> str | None:
         try:
             with open(filepath) as f:
                 return f.read()
-        except Exception as e:
-            print(f"Error reading file {filepath}: {e}")
+        except Exception:
+            logger.exception("Error reading file: %s", filepath)
             return None
 
     @staticmethod
@@ -49,11 +53,12 @@ class FileChangeHandler(FileSystemEventHandler):
             payload = TimestampedMessage(
                 filepath=filepath, message=message, timestamp=timestamp
             )
-            self.publisher_client.publish(payload, self.pubsub_endpoint)
-        except requests.exceptions.HTTPError as e:
-            print(f"HTTP error occurred: {e}")
-        except requests.exceptions.RequestException as e:
-            print(f"Error publishing message: {e}")
+            logger.info(f"Publishing message {message} to topic {filepath}")
+            self.publisher_client.publish(payload, f"{self.pubsub_endpoint}")
+        except requests.exceptions.HTTPError:
+            logger.exception("HTTP error occurred")
+        except requests.exceptions.RequestException:
+            logger.exception("Error publishing message")
 
     def on_modified(self, event: FileSystemEvent) -> None:
         timestamp = datetime.now().isoformat()
@@ -63,7 +68,7 @@ class FileChangeHandler(FileSystemEventHandler):
 
         filepath = str(event.src_path)
         if filepath not in self.cached_content:
-            print(f"Ignoring modification of not cached file: {filepath}")
+            logger.info("Ignoring modification of not cached file: %s", filepath)
             return
 
         new_content = self._get_file_content(filepath)
@@ -73,6 +78,7 @@ class FileChangeHandler(FileSystemEventHandler):
         old_content = self.cached_content[filepath]
 
         if new_content != old_content:
+            logger.info("Detected change in %s", filepath)
             diff = self._calculate_diff(old_content, new_content)
             self._publish_message(filepath, diff, timestamp)
             self.cached_content[filepath] = new_content

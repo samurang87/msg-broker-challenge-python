@@ -1,4 +1,12 @@
+import logging
+
+import pytest
 from watchdog.events import FileSystemEvent
+
+
+@pytest.fixture(autouse=True)
+def suppress_logs(caplog):
+    caplog.set_level(logging.CRITICAL)
 
 
 def test_on_modified_directory_ignored(

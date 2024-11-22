@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import sys
 import time
@@ -10,6 +11,11 @@ from watcher.publisher_clients import FakePublisherClient, HTTPPublisherClient
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+    logger = logging.getLogger("watcher_app_logger")
     parser = argparse.ArgumentParser(
         description="Watch directory for file changes and publish to Pub/Sub"
     )
@@ -24,7 +30,7 @@ def main():
     args = parser.parse_args()
 
     if not os.path.exists(args.directory):
-        print(f"Directory {args.directory} does not exist")
+        logger.error(f"Directory {args.directory} does not exist")
         return 1
 
     if args.env == "development":
@@ -32,7 +38,7 @@ def main():
     elif args.env == "production":
         publisher_client = HTTPPublisherClient()
     else:
-        print(f"Invalid environment: {args.env}")
+        logger.error(f"Invalid environment: {args.env}")
         return 1
 
     event_handler = FileChangeHandler(
@@ -42,7 +48,7 @@ def main():
     observer.schedule(event_handler, args.directory, recursive=True)
     observer.start()
 
-    print(f"Watching directory: {args.directory}")
+    logger.info(f"Watching directory: {args.directory}")
     try:
         while True:
             time.sleep(1)
